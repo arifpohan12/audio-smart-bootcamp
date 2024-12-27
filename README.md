@@ -1,4 +1,4 @@
-# Mini Bootcamp Starter Code
+# AudioSmart - Mini Bootcamp Starter Code
 
 This is a starter code for mini bootcamp: https://dub.sh/ngooding-7-hari
 
