@@ -9,6 +9,9 @@ import { ElevenLabsClient } from "elevenlabs";
 import { S3Client } from "@aws-sdk/client-s3";
 import { Upload } from "@aws-sdk/lib-storage";
 
+import { generateAudioTask } from "~/trigger/generate";
+import { runs } from "@trigger.dev/sdk/v3";
+
 const elevenlabs = new ElevenLabsClient({
   apiKey: env.ELEVENLABS_API_KEY,
 });
@@ -207,27 +210,16 @@ export const documentRouter = createTRPCRouter({
       const results = await Promise.all(
         pagesToRegenerate.map(async (page) => {
           try {
-            // Convert text to speech using ElevenLabs
-            const audioBuffer = await generateAudio(page.content, input.voice);
+            const handle = await generateAudioTask.trigger({
+              documentId: input.documentId,
+              pageId: page.id,
+              voice: input.voice,
+              content: page.content,
+            });
+            const runId = handle.id;
+            const run = await runs.retrieve<typeof generateAudioTask>(runId);
 
-            // Save the audio file
-            const fileName = `${page.documentId}-${page.pageNumber}-${Date.now()}.mp3`;
-            const audioPath = await saveAudioFile(audioBuffer, fileName);
-
-            // Update the audio file record
-            // await ctx.db
-            //   .delete(audioFiles)
-            //   .where(eq(audioFiles.pageId, page.id));
-            const [audioFile] = await ctx.db
-              .insert(audioFiles)
-              .values({
-                pageId: page.id,
-                fileName: fileName,
-                filePath: audioPath,
-              })
-              .returning();
-
-            return { pageId: page.id, success: true, audioFile };
+            return { pageId: page.id, success: true, runId };
           } catch (error) {
             console.error(
               `Error regenerating audio for page ${page.id}:`,
@@ -243,6 +235,17 @@ export const documentRouter = createTRPCRouter({
       );
 
       return results;
+    }),
+
+  getJobStatus: protectedProcedure
+    .input(
+      z.object({
+        runId: z.string(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const run = await runs.retrieve<typeof generateAudioTask>(input.runId);
+      return run;
     }),
 
   getAll: protectedProcedure.query(async ({ ctx }) => {

@@ -2,10 +2,12 @@
 
 import { api } from "~/trpc/react";
 import { UploadButton } from "~/utils/uploadthing";
+import { Pages } from "./Pages";
 
 export function Documents() {
   const { data: documents, refetch: refetchDocuments } =
     api.document.getAll.useQuery();
+
   const createDocument = api.document.create.useMutation({
     onSuccess: async () => {
       console.log("Document created successfully");
@@ -15,6 +17,17 @@ export function Documents() {
       console.error("Error creating document:", error);
     },
   });
+
+  const deleteDocument = api.document.delete.useMutation({
+    onSuccess: async () => {
+      console.log("Document deleted succesfully");
+      await refetchDocuments();
+    },
+    onError: (error) => {
+      console.error("Error deleting document:", error);
+    },
+  });
+
   return (
     <div>
       <UploadButton
@@ -45,13 +58,27 @@ export function Documents() {
             key={document.id}
           >
             <p>{document.name}</p>
+            <button
+              onClick={() => deleteDocument.mutate({ id: document.id })}
+              className="bg-red-500 px-3 text-white hover:bg-red-400"
+              disabled={deleteDocument.isPending}
+            >
+              {deleteDocument.isPending ? "Deleting..." : "Delete"}
+            </button>
             <p>Pages</p>
-            {document.pages.map((page) => (
+            <Pages
+              documentId={document.id}
+              // documentName={document.name}
+              pages={document.pages}
+              refetchDocuments={refetchDocuments}
+              voice={"NFG5qt843uXKj4pFvR7C"}
+            />
+            {/* {document.pages.map((page) => (
               <div key={page.id}>
                 <p>Page {page.pageNumber}</p>
                 <p>{page.content}</p>
               </div>
-            ))}
+            ))} */}
           </div>
         ))}
       </div>
